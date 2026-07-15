@@ -26,17 +26,22 @@ rc-update add chronyd default || true
 rc-service chronyd start || true
 rc-update add docker default || true
 rc-service docker start || true
-rc-update add nftables boot || true
 rc-update add sshd default || true
 
 sh "$SCRIPT_DIR/setup-ssh.sh"
 sh "$SCRIPT_DIR/install-adguardhome.sh"
 sh "$SCRIPT_DIR/install-uptime-kuma.sh"
 sh "$SCRIPT_DIR/install-adguardhome-sync.sh"
-sh "$SCRIPT_DIR/setup-firewall-nftables.sh"
-
 install -m 755 "$SCRIPT_DIR/status-check.sh" /usr/local/sbin/edge-status
 install -m 755 "$SCRIPT_DIR/update-all.sh" /usr/local/sbin/edge-update
+install -m 755 "$SCRIPT_DIR/setup-firewall-nftables.sh" /usr/local/sbin/edge-lockdown
+
+if [ "$ENABLE_FIREWALL" = "true" ]; then
+  sh "$SCRIPT_DIR/setup-firewall-nftables.sh"
+else
+  log "Firewall not enabled yet (ENABLE_FIREWALL=false) to avoid SSH lockout"
+  echo "After SSH works, enable lockdown with: ENABLE_FIREWALL=true edge-lockdown"
+fi
 
 log "Bootstrap finished"
 echo "Next: open AdGuard at http://<edge-ip>:${ADGUARD_UI_PORT}, complete setup wizard, then edit /etc/adguardhome-sync/adguardhome-sync.yaml."

@@ -9,7 +9,7 @@ require_root
 log "Configuring SSH user: $SSH_USER"
 if ! id "$SSH_USER" >/dev/null 2>&1; then
   adduser -D -s /bin/ash "$SSH_USER"
-  echo "Created user $SSH_USER. Set its console password with: passwd $SSH_USER"
+  echo "Created user $SSH_USER."
 fi
 addgroup "$SSH_USER" wheel >/dev/null 2>&1 || true
 
@@ -43,6 +43,13 @@ set_sshd X11Forwarding no
 set_sshd AllowTcpForwarding no
 set_sshd ClientAliveInterval 300
 set_sshd ClientAliveCountMax 2
+
+if [ -z "$SSH_AUTHORIZED_KEYS" ] && [ "$SET_SSH_PASSWORD" = "true" ] && [ -t 0 ]; then
+  echo "No SSH key provided. Set an SSH password for $SSH_USER now."
+  passwd "$SSH_USER"
+elif [ -z "$SSH_AUTHORIZED_KEYS" ]; then
+  echo "No SSH key provided. Set a password later with: passwd $SSH_USER"
+fi
 
 if [ -n "$SSH_AUTHORIZED_KEYS" ] && [ "$DISABLE_PASSWORD_SSH_IF_KEY_PRESENT" = "true" ]; then
   set_sshd PasswordAuthentication no

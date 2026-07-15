@@ -79,6 +79,22 @@ rc-service adguardhome-sync restart
 rc-service adguardhome-sync status
 ```
 
+
+## SSH / firewall safety
+
+The installer is now interactive/safe by default:
+
+- SSH user: `keiki`
+- If no SSH key is provided, it prompts on console to set `keiki`'s password.
+- Firewall lockdown is **not enabled on first install** unless `ENABLE_FIREWALL=true` is set.
+- After SSH is confirmed working, enable lockdown with:
+
+```sh
+ENABLE_FIREWALL=true sh /root/stoffberg-edge-monitor/scripts/setup-firewall-nftables.sh
+```
+
+If you are locked out, see `docs/ssh-firewall-rescue.md`.
+
 ## Important sync direction
 
 This box may be the **main DNS resolver for clients**, but its AdGuard configuration is pulled from the existing pve02 source:
