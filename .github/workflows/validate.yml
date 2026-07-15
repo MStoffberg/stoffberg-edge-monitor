@@ -16,4 +16,7 @@ jobs:
           done
       - name: Check no obvious committed secrets
         run: |
-          ! grep -RInE '(ghp_|BEGIN OPENSSH PRIVATE KEY|CHANGE_ME_[A-Z_]+: .+[^\"]$)' . || true
+          if grep -RInE 'ghp_|gho_|github_pat_|BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY' . --exclude-dir=.git --exclude='validate.yml'; then
+            echo 'Potential secret material found' >&2
+            exit 1
+          fi
