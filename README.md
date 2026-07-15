@@ -95,6 +95,10 @@ ENABLE_FIREWALL=true sh /root/stoffberg-edge-monitor/scripts/setup-firewall-nfta
 
 If you are locked out, see `docs/ssh-firewall-rescue.md`.
 
+## adguardhome-sync placement
+
+The HP edge box is normally the **sync target**, not the sync controller. The bootstrap now leaves `INSTALL_ADGUARD_SYNC=false` by default. Run `adguardhome-sync` on pve02 and add the HP AdGuard instance as a replica there. Only set `INSTALL_ADGUARD_SYNC=true` if you intentionally want the edge box to pull config from pve02 itself.
+
 ## Important sync direction
 
 This box may be the **main DNS resolver for clients**, but its AdGuard configuration is pulled from the existing pve02 source:

@@ -46,3 +46,33 @@ If `chroot` is not available in the live environment, edit the OpenRC runlevel s
 ```sh
 rm -f /mnt/etc/runlevels/boot/nftables /mnt/etc/runlevels/default/nftables
 ```
+
+## OpenRC `network-online.target` error
+
+If you see:
+
+```text
+/usr/libexec/rc/sh/gendepends.sh: line 12: network-online.target: not found
+```
+
+that is a systemd dependency name leaking into Alpine/OpenRC service dependency generation. Update the repo and reinstall the OpenRC-native AdGuard service:
+
+```sh
+cd /root/stoffberg-edge-monitor
+git pull
+rc-service AdGuardHome stop || true
+rm -f /etc/init.d/AdGuardHome
+sh scripts/install-adguardhome.sh
+rc-service AdGuardHome status
+```
+
+## Disable edge-local adguardhome-sync
+
+The HP edge box should normally be a sync target. If adguardhome-sync was installed here by an earlier bootstrap, disable it:
+
+```sh
+rc-service adguardhome-sync stop || true
+rc-update del adguardhome-sync default || true
+```
+
+Run adguardhome-sync on pve02 instead and add the HP AdGuard URL as a replica there.

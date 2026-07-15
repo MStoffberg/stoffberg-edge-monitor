@@ -38,7 +38,7 @@ fi
 
 log "Applying optional environment overrides"
 # These let a one-liner customize common values without editing the repo.
-for key in HOSTNAME TIMEZONE LAN_CIDRS SSH_USER SSH_AUTHORIZED_KEYS SET_SSH_PASSWORD ENABLE_FIREWALL ADGUARD_UI_PORT UPTIME_KUMA_PORT; do
+for key in HOSTNAME TIMEZONE LAN_CIDRS SSH_USER SSH_AUTHORIZED_KEYS SET_SSH_PASSWORD ENABLE_FIREWALL INSTALL_ADGUARD_SYNC ADGUARD_UI_PORT UPTIME_KUMA_PORT; do
   eval "value=\${$key:-}"
   [ -n "$value" ] || continue
   if grep -q "^$key=" "$ENV_FILE"; then

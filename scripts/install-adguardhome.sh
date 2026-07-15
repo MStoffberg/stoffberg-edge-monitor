@@ -23,6 +23,21 @@ rm -rf /opt/AdGuardHome
 mkdir -p /opt
 mv "$work/AdGuardHome" /opt/AdGuardHome
 chmod 755 /opt/AdGuardHome/AdGuardHome
-/opt/AdGuardHome/AdGuardHome -s install
-/opt/AdGuardHome/AdGuardHome -s start || true
+cat > /etc/init.d/AdGuardHome <<'EOF'
+#!/sbin/openrc-run
+name="AdGuardHome"
+description="AdGuard Home DNS server"
+command="/opt/AdGuardHome/AdGuardHome"
+command_args="-c /opt/AdGuardHome/AdGuardHome.yaml -w /opt/AdGuardHome"
+command_background=true
+pidfile="/run/AdGuardHome.pid"
+output_log="/var/log/AdGuardHome.log"
+error_log="/var/log/AdGuardHome.log"
+depend() {
+  need net
+}
+EOF
+chmod 755 /etc/init.d/AdGuardHome
+rc-update add AdGuardHome default || true
+rc-service AdGuardHome start || true
 /opt/AdGuardHome/AdGuardHome --version || true
