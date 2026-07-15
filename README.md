@@ -24,7 +24,33 @@ edge-monitor-01
 
 ## Quick start after Alpine OS install
 
-On the HP t520, as `root`:
+On the HP t520, as `root`, use the Alpine-safe one-liner:
+
+```sh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh)"
+```
+
+If you specifically want the Proxmox community-script style with `bash`, install bash first:
+
+```sh
+apk add --no-cache bash curl && bash -c "$(curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh)"
+```
+
+Optional safer inspect-first flow:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh -o /tmp/edge-install.sh
+sed -n '1,220p' /tmp/edge-install.sh
+sh /tmp/edge-install.sh
+```
+
+Optional one-liner with an SSH key and custom LAN CIDR:
+
+```sh
+SSH_AUTHORIZED_KEYS='ssh-ed25519 AAAA... keiki@pc' LAN_CIDRS='10.0.0.0/24' sh -c "$(curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh)"
+```
+
+Manual flow if you do not want the one-liner:
 
 ```sh
 apk add --no-cache git ca-certificates curl
