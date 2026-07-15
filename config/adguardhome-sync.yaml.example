@@ -1,0 +1,45 @@
+# Copy to /etc/adguardhome-sync/adguardhome-sync.yaml and chmod 600.
+# This file contains secrets after editing; never commit the real file.
+
+cron: "*/10 * * * *"
+runOnStart: true
+continueOnError: false
+httpClientTimeout: 30s
+
+# Source of truth: existing pve02 AdGuard Home.
+origin:
+  url: "http://10.0.0.201:3000"
+  username: "CHANGE_ME_PVE02_ADGUARD_USERNAME"
+  password: "CHANGE_ME_PVE02_ADGUARD_PASSWORD"
+
+# Target: this HP t520 local AdGuard Home.
+replicas:
+  - url: "http://127.0.0.1:3000"
+    username: "CHANGE_ME_LOCAL_ADGUARD_USERNAME"
+    password: "CHANGE_ME_LOCAL_ADGUARD_PASSWORD"
+
+# Disable the adguardhome-sync web API by default.
+api:
+  port: 0
+
+features:
+  dns:
+    accessLists: true
+    serverConfig: true
+    rewrites: true
+  # Keep DHCP disabled unless you explicitly want AdGuard Home to manage DHCP later.
+  dhcp:
+    serverConfig: false
+    staticLeases: false
+  generalSettings: true
+  protectionStatus: true
+  queryLogConfig: true
+  statsConfig: true
+  clientSettings: true
+  services: true
+  filters:
+    blacklist: true
+    whitelist: true
+    userRules: true
+  theme: true
+  tlsConfig: false

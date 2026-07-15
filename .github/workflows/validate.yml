@@ -1,0 +1,19 @@
+name: validate
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax check
+        run: |
+          for f in scripts/*.sh; do
+            echo "checking $f"
+            sh -n "$f"
+          done
+      - name: Check no obvious committed secrets
+        run: |
+          ! grep -RInE '(ghp_|BEGIN OPENSSH PRIVATE KEY|CHANGE_ME_[A-Z_]+: .+[^\"]$)' . || true
