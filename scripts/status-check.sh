@@ -13,6 +13,8 @@ for s in sshd nftables chronyd docker AdGuardHome adguardhome-sync; do
 done
 printf '\n== Docker ==\n'
 docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' || true
+printf '\n== Docker resource usage ==\n'
+docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}' || true
 printf '\n== Listening ports ==\n'
 ss -lntup || netstat -lntup || true
 printf '\n== DNS self-test ==\n'

@@ -25,7 +25,7 @@ EOF
 printf '%s\n' "$LAN_CIDRS" | tr ',' '\n' | while read -r cidr; do
   cidr=$(printf '%s' "$cidr" | tr -d ' ')
   [ -n "$cidr" ] || continue
-  printf '    ip saddr %s tcp dport { 22, %s, %s } accept\n' "$cidr" "$ADGUARD_UI_PORT" "$UPTIME_KUMA_PORT"
+  printf '    ip saddr %s tcp dport { 22, %s, %s, %s } accept\n' "$cidr" "$ADGUARD_UI_PORT" "$UPTIME_KUMA_PORT" "$BESZEL_LISTEN"
   printf '    ip saddr %s udp dport 53 accept\n' "$cidr"
   printf '    ip saddr %s tcp dport 53 accept\n' "$cidr"
 done

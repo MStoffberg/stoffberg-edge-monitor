@@ -8,7 +8,6 @@ require_root
 
 log "Installing base packages"
 apk update
-apk upgrade --available
 apk add --no-cache \
   bash ca-certificates curl docker docker-cli-compose doas git logrotate \
   nftables openssh-server openssh-client shadow sudo tzdata chrony tar gzip
@@ -51,3 +50,4 @@ fi
 log "Bootstrap finished"
 echo "Next: open AdGuard at http://<edge-ip>:${ADGUARD_UI_PORT} and complete the setup wizard."
 echo "Run: edge-status"
+echo "Run: edge-update to detect updates, prompt before applying them, and clean safe caches."

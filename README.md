@@ -15,6 +15,7 @@ Primary role:
 edge-monitor-01
   - Main LAN DNS: AdGuard Home
   - Monitoring: Uptime Kuma
+  - Resource monitoring: Beszel Agent
   - SSH admin access
   - nftables firewall: LAN-only inbound
   - adguardhome-sync: pulls config from pve02 AdGuard Home
@@ -68,6 +69,23 @@ Then open:
 AdGuard Home setup: http://<edge-ip>:3000
 Uptime Kuma:        http://<edge-ip>:3001
 ```
+
+The Beszel Agent is added to the same Compose stack without recreating an
+existing Kuma container. Put the Hub-generated values only in the protected
+local file `/etc/edge-monitor.env`:
+
+```sh
+INSTALL_BESZEL_AGENT=true
+BESZEL_LISTEN=45876
+BESZEL_KEY="<hub-generated public key>"
+BESZEL_HUB_URL="http://10.0.0.204:8090"
+BESZEL_TOKEN="<hub-generated token>"
+```
+
+Then rerun the installer. Existing AdGuard and Kuma installations are kept;
+only the missing Beszel Agent is created. Run `edge-update` later to detect
+updates, ask before applying each one, and remove only safe caches/dangling
+images.
 
 After AdGuard Home's first-run wizard is completed on the HP box, configure sync:
 
@@ -125,6 +143,7 @@ That means:
 - Docker + Docker Compose plugin
 - AdGuard Home native binary/service
 - Uptime Kuma via Docker Compose
+- Beszel Agent in the same Docker Compose stack when Hub credentials exist
 - adguardhome-sync native binary/service
 - status and update helper scripts
 
@@ -138,6 +157,7 @@ Default inbound policy is drop. It allows only from `LAN_CIDRS`:
 | 53 | TCP/UDP | DNS / AdGuard Home |
 | 3000 | TCP | AdGuard Home UI/setup |
 | 3001 | TCP | Uptime Kuma |
+| 45876 | TCP | Beszel Agent (LAN only) |
 
 Outbound traffic is allowed so the box can update packages, download blocklists, and sync from pve02.
 
@@ -157,6 +177,7 @@ scripts/
   bootstrap-alpine.sh               # full setup entrypoint
   install-adguardhome.sh
   install-uptime-kuma.sh
+  render-monitoring-compose.sh
   install-adguardhome-sync.sh
   setup-firewall-nftables.sh
   setup-ssh.sh
