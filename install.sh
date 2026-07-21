@@ -5,13 +5,14 @@ REPO_URL="${REPO_URL:-https://github.com/MStoffberg/stoffberg-edge-monitor.git}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-/root/stoffberg-edge-monitor}"
 ENV_FILE="${ENV_FILE:-/etc/edge-monitor.env}"
+ALPINE_RELEASE_FILE="${ALPINE_RELEASE_FILE:-/etc/alpine-release}"
 RUN_BOOTSTRAP="${RUN_BOOTSTRAP:-true}"
 
 log() { printf '\n[edge-installer] %s\n' "$*"; }
 fail() { printf '\n[edge-installer] ERROR: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = "0" ] || fail "run as root"
-[ -f /etc/alpine-release ] || fail "this installer targets Alpine Linux"
+[ -f "$ALPINE_RELEASE_FILE" ] || fail "this installer targets Alpine Linux"
 
 log "Installing prerequisites"
 apk update
@@ -38,7 +39,7 @@ fi
 
 log "Applying optional environment overrides"
 # These let a one-liner customize common values without editing the repo.
-for key in HOSTNAME TIMEZONE LAN_CIDRS SSH_USER SSH_AUTHORIZED_KEYS SET_SSH_PASSWORD ENABLE_FIREWALL INSTALL_ADGUARD_SYNC ADGUARD_UI_PORT UPTIME_KUMA_PORT INSTALL_BESZEL_AGENT BESZEL_AGENT_IMAGE BESZEL_LISTEN BESZEL_KEY BESZEL_HUB_URL BESZEL_TOKEN; do
+for key in HOSTNAME TIMEZONE LAN_CIDRS SSH_USER SSH_AUTHORIZED_KEYS SET_SSH_PASSWORD ENABLE_FIREWALL INSTALL_ADGUARD_SYNC ADGUARD_UI_PORT INSTALL_BESZEL_AGENT BESZEL_AGENT_IMAGE BESZEL_LISTEN BESZEL_KEY BESZEL_HUB_URL BESZEL_TOKEN INSTALL_CLOUDFLARED CLOUDFLARED_IMAGE CLOUDFLARED_TOKEN_FILE ENABLE_SCHEDULED_CLEANUP CLEANUP_MIN_DISK_PERCENT CLEANUP_DOCKER_IMAGES CLEANUP_DOCKER_BUILD_CACHE; do
   eval "value=\${$key:-}"
   [ -n "$value" ] || continue
   if grep -q "^$key=" "$ENV_FILE"; then

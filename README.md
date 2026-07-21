@@ -1,193 +1,75 @@
-# Stoffberg Edge Monitor
+# Stoffberg Tiny Edge
 
-Public bootstrap repo for the HP t520 / HPT520 thin client used as a **local-only DNS + monitoring appliance**.
+Alpine bootstrap and operations for `tiny01.stoffy.lan` (`192.168.101.126`).
 
-Target hardware:
+## Intended topology after explicit cutovers
 
-- HP t520 / HPT520
-- 2 GB RAM
-- 8 GB storage
-- Alpine Linux Standard x86_64, installed in `sys` mode
-
-Primary role:
+The example configuration is fail-safe: Beszel and Cloudflared default to disabled, and recurring DNS synchronization remains disabled until credentials, one-shot validation, and owner approval are complete.
 
 ```text
-edge-monitor-01
-  - Main LAN DNS: AdGuard Home
-  - Monitoring: Uptime Kuma
-  - Resource monitoring: Beszel Agent
-  - SSH admin access
-  - nftables firewall: LAN-only inbound
-  - adguardhome-sync: pulls config from pve02 AdGuard Home
+Tiny Edge
+  - Main client-facing DNS: AdGuard Home
+  - DNS sync controller: pulls pve02 CT201 source and fans out to replicas
+  - Cloudflare Tunnel connector: outbound-only Docker service
+  - Beszel Agent
+  - Conservative weekly cleanup
 ```
 
-> Public repo rule: **no secrets live here**. Put passwords/API tokens only on the device in files under `/etc/*` with mode `600`.
+pve02 CT201 remains the AdGuard configuration source of truth. Tiny Edge is the controller and primary client DNS, not the policy authority.
 
-## Quick start after Alpine OS install
+## Install
 
-On the HP t520, as `root`, use the Alpine-safe one-liner:
+Inspect first:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh -o /tmp/edge-install.sh
+sed -n '1,240p' /tmp/edge-install.sh
+sh /tmp/edge-install.sh
+```
+
+Or run directly on Alpine:
 
 ```sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh)"
 ```
 
-If you specifically want the Proxmox community-script style with `bash`, install bash first:
+The firewall is not enabled until owner access is proven. Keep one SSH session open and test another before running `ENABLE_FIREWALL=true edge-lockdown`.
+
+## Cloudflared cutover
+
+For the staged two-phase migration, first move the credential into a root-only staging path, then run the cutover:
 
 ```sh
-apk add --no-cache bash curl && bash -c "$(curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh)"
+# The source file is temporary; never commit it.
+doas install -m 600 -o root -g root /home/keiki/.cloudflared-token.env /root/cloudflared-token.env
+rm -f /home/keiki/.cloudflared-token.env
+doas sh scripts/apply-tiny-cutover.sh /root/cloudflared-token.env
 ```
 
-Optional safer inspect-first flow:
+Phase one transactionally installs/reconciles Cloudflared and Beszel only when Beszel has been explicitly enabled with complete Hub credentials. It leaves the firewall untouched. Verify public routes, WebSocket, Tiny Cloudflared stability, and—if enabled—Beszel Hub registration before disabling/removing the old connector. The installer preserves any replaced containers with `-before-edge-<timestamp>` names as rollback material; after external verification, inspect them with `docker ps -a --format '{{.Names}}'` and remove only the exact old names with `docker rm <name>`. The credential file must contain `TUNNEL_TOKEN=<token>`; the cutover requires a root-owned mode-`0600` regular file in a root-owned mode-`0700` directory, rejects symlinks, copies from an already-open descriptor, and removes the staging file after success.
+
+## DNS sync
+
+Copy `config/adguardhome-sync.yaml.example` to `/etc/adguardhome-sync/adguardhome-sync.yaml`, add credentials, remove or disable every currently unreachable replica, stop the old CT201 controller, and run the documented one-shot check. Only after every intended replica passes should you install the exact recurring-sync approval marker and enable the Tiny service. See `docs/adguard-sync.md`.
+
+## Maintenance
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh -o /tmp/edge-install.sh
-sed -n '1,220p' /tmp/edge-install.sh
-sh /tmp/edge-install.sh
+edge-status
+edge-update
+edge-cleanup          # dry run
+edge-cleanup --apply  # explicit cleanup
 ```
 
-Optional one-liner with an SSH key and custom LAN CIDR:
+Explicit cleanup always performs bounded APK-cache, known installer-temp, aged temporary-file, and rotated-log cleanup. Docker image/build-cache pruning is additionally disk-threshold-gated. It never removes active/stopped containers or volumes.
 
-```sh
-SSH_AUTHORIZED_KEYS='ssh-ed25519 AAAA... keiki@pc' LAN_CIDRS='10.0.0.0/24' sh -c "$(curl -fsSL https://raw.githubusercontent.com/MStoffberg/stoffberg-edge-monitor/main/install.sh)"
-```
+## Firewall LAN ports
 
-Manual flow if you do not want the one-liner:
+| Port | Purpose |
+|---|---|
+| 22/tcp | SSH |
+| 53/tcp+udp | DNS |
+| 3000/tcp | AdGuard UI |
+| 45876/tcp | Beszel agent |
 
-```sh
-apk add --no-cache git ca-certificates curl
-cd /root
-git clone https://github.com/MStoffberg/stoffberg-edge-monitor.git
-cd stoffberg-edge-monitor
-cp config/edge-monitor.env.example /etc/edge-monitor.env
-vi /etc/edge-monitor.env
-sh scripts/bootstrap-alpine.sh
-```
-
-Then open:
-
-```text
-AdGuard Home setup: http://<edge-ip>:3000
-Uptime Kuma:        http://<edge-ip>:3001
-```
-
-The Beszel Agent is added to the same Compose stack without recreating an
-existing Kuma container. Put the Hub-generated values only in the protected
-local file `/etc/edge-monitor.env`:
-
-```sh
-INSTALL_BESZEL_AGENT=true
-BESZEL_LISTEN=45876
-BESZEL_KEY="<hub-generated public key>"
-BESZEL_HUB_URL="http://10.0.0.204:8090"
-BESZEL_TOKEN="<hub-generated token>"
-```
-
-Then rerun the installer. Existing AdGuard and Kuma installations are kept;
-only the missing Beszel Agent is created. Run `edge-update` later to detect
-updates, ask before applying each one, and remove only safe caches/dangling
-images.
-
-After AdGuard Home's first-run wizard is completed on the HP box, configure sync:
-
-```sh
-cp config/adguardhome-sync.yaml.example /etc/adguardhome-sync/adguardhome-sync.yaml
-vi /etc/adguardhome-sync/adguardhome-sync.yaml
-chmod 600 /etc/adguardhome-sync/adguardhome-sync.yaml
-rc-service adguardhome-sync restart
-rc-service adguardhome-sync status
-```
-
-
-## SSH / firewall safety
-
-The installer is now interactive/safe by default:
-
-- SSH user: `keiki`
-- If no SSH key is provided, it prompts on console to set `keiki`'s password.
-- Firewall lockdown is **not enabled on first install** unless `ENABLE_FIREWALL=true` is set.
-- After SSH is confirmed working, enable lockdown with:
-
-```sh
-ENABLE_FIREWALL=true sh /root/stoffberg-edge-monitor/scripts/setup-firewall-nftables.sh
-```
-
-If you are locked out, see `docs/ssh-firewall-rescue.md`.
-
-## adguardhome-sync placement
-
-The HP edge box is normally the **sync target**, not the sync controller. The bootstrap now leaves `INSTALL_ADGUARD_SYNC=false` by default. Run `adguardhome-sync` on pve02 and add the HP AdGuard instance as a replica there. Only set `INSTALL_ADGUARD_SYNC=true` if you intentionally want the edge box to pull config from pve02 itself.
-
-## Important sync direction
-
-This box may be the **main DNS resolver for clients**, but its AdGuard configuration is pulled from the existing pve02 source:
-
-```text
-pve02 AdGuard Home / CT201 / 10.0.0.201  --->  HP t520 AdGuard Home / edge-monitor-01
-                 source/origin                         target/replica/main-client-DNS
-```
-
-That means:
-
-- edit allow/block lists, rewrites, clients, and DNS rules on **pve02**
-- adguardhome-sync copies those settings to the HP t520
-- clients can use the HP t520 as their primary DNS once tested
-
-## What the bootstrap installs
-
-- base security packages
-- OpenSSH
-- `doas` for admin escalation
-- `nftables` firewall
-- `chrony` time sync
-- `logrotate`
-- Docker + Docker Compose plugin
-- AdGuard Home native binary/service
-- Uptime Kuma via Docker Compose
-- Beszel Agent in the same Docker Compose stack when Hub credentials exist
-- adguardhome-sync native binary/service
-- status and update helper scripts
-
-## LAN-only firewall policy
-
-Default inbound policy is drop. It allows only from `LAN_CIDRS`:
-
-| Port | Protocol | Service |
-|---:|---|---|
-| 22 | TCP | SSH |
-| 53 | TCP/UDP | DNS / AdGuard Home |
-| 3000 | TCP | AdGuard Home UI/setup |
-| 3001 | TCP | Uptime Kuma |
-| 45876 | TCP | Beszel Agent (LAN only) |
-
-Outbound traffic is allowed so the box can update packages, download blocklists, and sync from pve02.
-
-## Files
-
-```text
-config/
-  edge-monitor.env.example          # local bootstrap settings; copy to /etc/edge-monitor.env
-  adguardhome-sync.yaml.example     # local sync settings; copy to /etc/adguardhome-sync/
-
-docs/
-  post-os-install.md                # Alpine install and first boot checklist
-  security-model.md                 # what is locked down and what remains manual
-  adguard-sync.md                   # pve02 -> edge-monitor-01 sync direction
-
-scripts/
-  bootstrap-alpine.sh               # full setup entrypoint
-  install-adguardhome.sh
-  install-uptime-kuma.sh
-  render-monitoring-compose.sh
-  install-adguardhome-sync.sh
-  setup-firewall-nftables.sh
-  setup-ssh.sh
-  status-check.sh
-  update-all.sh
-```
-
-## Safety notes
-
-- Do **not** put this GitHub repo's files in charge of DHCP/router settings yet.
-- Do **not** expose this box publicly for now.
-- Do **not** store AdGuard admin passwords or sync credentials in Git.
-- Test DNS before making it the only DNS server in DHCP.
+Cloudflared needs outbound HTTPS/QUIC access; it does not need an inbound port.

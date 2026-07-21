@@ -13,7 +13,7 @@ setup-alpine
 Recommended values:
 
 ```text
-hostname: edge-monitor-01
+hostname: tiny01.stoffy.lan
 ssh: openssh
 disk mode: sys
 ```
@@ -52,13 +52,20 @@ http://<edge-ip>:3000
 
 Use a strong admin password. Do not commit it.
 
-## 6. Configure pve02 -> edge sync
+## 6. Configure Tiny Edge DNS fan-out
+
+Tiny Edge runs adguardhome-sync, pulling the authoritative configuration from pve02 CT201 and distributing it to the configured replicas:
 
 ```sh
 cp config/adguardhome-sync.yaml.example /etc/adguardhome-sync/adguardhome-sync.yaml
 vi /etc/adguardhome-sync/adguardhome-sync.yaml
 chmod 600 /etc/adguardhome-sync/adguardhome-sync.yaml
-rc-service adguardhome-sync restart
+# One write only: no scheduler and no API listener. Inspect every target first.
+doas adguardhome-sync run --config /etc/adguardhome-sync/adguardhome-sync.yaml --cron "" --api-port 0
+printf '%s\n' 'ADGUARD_SYNC_CUTOVER_APPROVED=true' | doas tee /etc/adguardhome-sync/recurring-sync-cutover-approved >/dev/null
+doas chmod 600 /etc/adguardhome-sync/recurring-sync-cutover-approved
+doas rc-update add adguardhome-sync default
+doas rc-service adguardhome-sync start
 ```
 
 ## 7. Verify

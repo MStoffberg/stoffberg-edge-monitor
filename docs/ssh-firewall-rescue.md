@@ -66,13 +66,18 @@ sh scripts/install-adguardhome.sh
 rc-service AdGuardHome status
 ```
 
-## Disable edge-local adguardhome-sync
+## Recover Tiny Edge DNS sync controller
 
-The HP edge box should normally be a sync target. If adguardhome-sync was installed here by an earlier bootstrap, disable it:
+Tiny may become the designated `adguardhome-sync` controller only after a verified one-shot fan-out. If it was disabled during rescue, do not restart recurring synchronization directly. First confirm every configured source/replica is reachable, the YAML contains no placeholders, and the old controller has been stopped. Then run:
 
 ```sh
-rc-service adguardhome-sync stop || true
-rc-update del adguardhome-sync default || true
+adguardhome-sync run --config /etc/adguardhome-sync/adguardhome-sync.yaml --cron "" --api-port 0
+printf '%s\n' 'ADGUARD_SYNC_CUTOVER_APPROVED=true' > /etc/adguardhome-sync/recurring-sync-cutover-approved
+chmod 600 /etc/adguardhome-sync/recurring-sync-cutover-approved
+rc-update add adguardhome-sync default
+rc-service adguardhome-sync start
+rc-service adguardhome-sync status
+tail -n 100 /var/log/adguardhome-sync.log
 ```
 
-Run adguardhome-sync on pve02 instead and add the HP AdGuard URL as a replica there.
+pve02 CT201 remains the configuration source. Disable its old recurring controller only immediately before Tiny's successful one-shot/recurring cutover; never leave both schedulers active.

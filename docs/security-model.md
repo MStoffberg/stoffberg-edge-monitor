@@ -1,51 +1,35 @@
 # Security model
 
-This box is intended to be **local network only**.
+Tiny Edge is an outbound edge connector and LAN infrastructure host. It opens no router port forwards.
 
-## Hardened by bootstrap
-
-- SSH root login disabled.
-- Public-key SSH supported.
-- Password SSH disabled automatically only if a public key was provided.
-- `doas` enabled for the admin user via `wheel` group.
-- `nftables` default inbound drop policy.
-- LAN-only inbound access to SSH, DNS, AdGuard UI, and Kuma.
-- No public reverse proxy or Cloudflare Tunnel configured by default.
-- adguardhome-sync API disabled by default.
-
-## Allowed inbound services
+## Inbound LAN services
 
 From configured `LAN_CIDRS` only:
 
-- TCP 22 SSH
-- TCP/UDP 53 DNS
-- TCP 3000 AdGuard Home UI/setup
-- TCP 3001 Uptime Kuma
+- TCP 22: SSH
+- TCP/UDP 53: AdGuard DNS
+- TCP 3000: AdGuard administration
+- TCP 45876: Beszel agent
+
+Cloudflared makes outbound-only encrypted connections to Cloudflare.
+
+## Access safety
+
+- Root SSH is disabled.
+- Password SSH is disabled only after a public key is proven.
+- Firewall activation remains explicit; test a second SSH session before lockdown.
+- `doas` provides named owner escalation.
 
 ## Secrets
 
-Never commit:
+Never commit AdGuard credentials, Cloudflare tokens, Beszel credentials, private keys, or backup databases.
 
-- AdGuard admin password
-- pve02 AdGuard credentials
-- local AdGuard credentials
-- SSH private keys
-- Cloudflare tokens
+- DNS sync credentials: `/etc/adguardhome-sync/adguardhome-sync.yaml` (`0600`)
+- Tunnel token: `/etc/cloudflared/token.env` (`0600`), formatted as `TUNNEL_TOKEN=...`
+- Local host settings: `/etc/edge-monitor.env` (`0600`)
 
-Store real sync credentials in:
+The Cloudflare route is remotely managed. Publish only explicitly approved hostnames; do not expose SSH, AdGuard, Beszel, Proxmox, or other administration surfaces.
 
-```text
-/etc/adguardhome-sync/adguardhome-sync.yaml
-```
+## Cleanup boundaries
 
-with:
-
-```sh
-chmod 600 /etc/adguardhome-sync/adguardhome-sync.yaml
-```
-
-## Still manual
-
-- Router/DHCP changes are not automated here.
-- This repo does not expose the device publicly.
-- Uptime Kuma admin user is created in the web UI after first start.
+`edge-cleanup` is dry-run by default. Its apply mode never prunes Docker containers or volumes and never uses `docker system prune`. Build-cache cleanup is separately disabled by default.

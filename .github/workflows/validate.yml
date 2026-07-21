@@ -15,10 +15,22 @@ jobs:
             sh -n "$f"
           done
       - name: Behavior tests
-        run: sh tests/test_beszel_agent.sh
+        run: |
+          for test in tests/*.sh; do
+            echo "running $test"
+            sh "$test"
+          done
+      - name: Alpine BusyBox behavior
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" alpine:3.22 sh -c '
+            apk add --no-cache grep >/dev/null
+            cd /repo
+            for f in install.sh scripts/*.sh tests/*.sh; do sh -n "$f"; done
+            for test in tests/*.sh; do sh "$test"; done
+          '
       - name: Check no obvious committed secrets
         run: |
-          if grep -RInE 'ghp_|gho_|github_pat_|BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY' . --exclude-dir=.git --exclude='validate.yml'; then
+          if grep -RInE 'ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|TUNNEL_TOKEN=[A-Za-z0-9._-]{20,}|BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY' . --exclude-dir=.git --exclude='validate.yml' --exclude='test_topology.sh'; then
             echo 'Potential secret material found' >&2
             exit 1
           fi

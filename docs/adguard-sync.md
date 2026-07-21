@@ -1,42 +1,46 @@
-# AdGuard sync direction
+# Tiny Edge DNS synchronization
 
-The HP t520 is allowed to be the main DNS server for clients, but not the config source of truth.
-
-Source of truth:
+Tiny Edge (`tiny01.stoffy.lan`, `192.168.101.126`) is the **adguardhome-sync controller** and the main client-facing DNS server. It is not the configuration authority.
 
 ```text
-pve02 CT201 AdGuard Home: http://10.0.0.201:3000
+pve02 CT201 / 10.0.0.201 (source of truth)
+                    |
+                    v
+       Tiny Edge adguardhome-sync controller
+          |              |                |
+          v              v                v
+ local AdGuard      pve CT101       TrueNAS AdGuard
+ 127.0.0.1          10.0.0.102      192.168.101.140:30004
 ```
 
-Target replica:
+This is deliberately one-way. Make policy changes on pve02 CT201; Tiny Edge distributes them every five minutes. DHCP and TLS synchronization stay disabled.
 
-```text
-edge-monitor-01 HP t520: http://127.0.0.1:3000
-```
+## Cutover
 
-Sync direction:
+1. Copy `config/adguardhome-sync.yaml.example` to `/etc/adguardhome-sync/adguardhome-sync.yaml`.
+2. Add each endpoint's real credentials, remove/comment any unavailable replica, and `chmod 600` the file.
+3. Stop and disable the old CT201 sync service so two controllers do not overlap.
+4. On Tiny Edge, run exactly one foreground sync (the explicit empty `--cron` overrides the file's recurring schedule):
 
-```text
-10.0.0.201 ---> edge-monitor-01
-```
+   ```sh
+   doas adguardhome-sync run --config /etc/adguardhome-sync/adguardhome-sync.yaml --cron "" --api-port 0
+   ```
 
-## Why this direction?
+5. Inspect the command result, every intended replica, and direct DNS queries. Do not approve recurring sync while any intended target is unavailable or credentials remain placeholders.
+6. Install the exact approval marker and enable/start Tiny's recurring service:
 
-- pve02 already holds the known-good AdGuard config.
-- HP t520 can serve clients as primary DNS.
-- If the HP is reinstalled, it can pull the same config again.
-- Avoids accidentally overwriting pve02 with a fresh/empty HP config.
+   ```sh
+   printf '%s\n' 'ADGUARD_SYNC_CUTOVER_APPROVED=true' | doas tee /etc/adguardhome-sync/recurring-sync-cutover-approved >/dev/null
+   doas chmod 600 /etc/adguardhome-sync/recurring-sync-cutover-approved
+   doas rc-update add adguardhome-sync default
+   doas rc-service adguardhome-sync start
+   ```
 
-## First sync steps
+7. Verify the next scheduled run and query Tiny Edge DNS:
 
-1. Complete the HP AdGuard setup wizard.
-2. Create/use a local HP AdGuard admin account.
-3. Copy the example sync YAML to `/etc/adguardhome-sync/adguardhome-sync.yaml`.
-4. Fill in pve02 and local credentials.
-5. Restart the service.
-6. Verify AdGuard settings on the HP match pve02.
+   ```sh
+   doas tail -n 100 /var/log/adguardhome-sync.log
+   nslookup example.com 127.0.0.1
+   ```
 
-```sh
-rc-service adguardhome-sync restart
-tail -n 100 /var/log/adguardhome-sync.log
-```
+If a replica is intentionally offline, `continueOnError: true` lets remaining replicas synchronize. The web API remains disabled (`port: 0`).

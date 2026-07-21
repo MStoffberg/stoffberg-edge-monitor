@@ -31,8 +31,8 @@ SSHD=/etc/ssh/sshd_config
 cp "$SSHD" "$SSHD.bak.$(date +%Y%m%d%H%M%S)"
 set_sshd() {
   key="$1"; value="$2"
-  if grep -qE "^[# ]*$key[[:space:]]+" "$SSHD"; then
-    sed -i "s|^[# ]*$key[[:space:]].*|$key $value|" "$SSHD"
+  if grep -qE "^[# ]*${key}[[:space:]]+" "$SSHD"; then
+    sed -i "s|^[# ]*${key}[[:space:]].*|$key $value|" "$SSHD"
   else
     printf '%s %s\n' "$key" "$value" >> "$SSHD"
   fi

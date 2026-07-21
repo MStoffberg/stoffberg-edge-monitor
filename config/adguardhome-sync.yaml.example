@@ -1,33 +1,37 @@
-# Copy to /etc/adguardhome-sync/adguardhome-sync.yaml and chmod 600.
-# This file contains secrets after editing; never commit the real file.
-
-cron: "*/10 * * * *"
+# Tiny Edge is the sync controller; pve02 CT201 remains source of truth.
+# Copy to /etc/adguardhome-sync/adguardhome-sync.yaml, add real credentials,
+# chmod 600, then run one manual sync before enabling the service.
+cron: "*/5 * * * *"
 runOnStart: true
-continueOnError: false
+continueOnError: true
 httpClientTimeout: 30s
 
-# Source of truth: existing pve02 AdGuard Home.
 origin:
-  url: "http://10.0.0.201:3000"
-  username: "CHANGE_ME_PVE02_ADGUARD_USERNAME"
-  password: "CHANGE_ME_PVE02_ADGUARD_PASSWORD"
+  url: "http://10.0.0.201"
+  username: "CHANGE_ME_PVE02_USERNAME"
+  password: "CHANGE_ME_PVE02_PASSWORD"
 
-# Target: this HP t520 local AdGuard Home.
 replicas:
+  # Main client-facing DNS on this Tiny Edge host.
   - url: "http://127.0.0.1:3000"
-    username: "CHANGE_ME_LOCAL_ADGUARD_USERNAME"
-    password: "CHANGE_ME_LOCAL_ADGUARD_PASSWORD"
+    username: "CHANGE_ME_TINY_EDGE_USERNAME"
+    password: "CHANGE_ME_TINY_EDGE_PASSWORD"
+  # pve CT101 secondary DNS.
+  - url: "http://10.0.0.102:3000"
+    username: "CHANGE_ME_CT101_USERNAME"
+    password: "CHANGE_ME_CT101_PASSWORD"
+  # TrueNAS-hosted/remote AdGuard management endpoint.
+  - url: "http://192.168.101.140:30004"
+    username: "CHANGE_ME_TRUENAS_USERNAME"
+    password: "CHANGE_ME_TRUENAS_PASSWORD"
 
-# Disable the adguardhome-sync web API by default.
 api:
   port: 0
-
 features:
   dns:
     accessLists: true
     serverConfig: true
     rewrites: true
-  # Keep DHCP disabled unless you explicitly want AdGuard Home to manage DHCP later.
   dhcp:
     serverConfig: false
     staticLeases: false

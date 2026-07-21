@@ -1,0 +1,15 @@
+# Local configuration and credentials must never enter Git.
+.env
+.env.*
+*.secret
+*.secrets
+
+# Cloudflare Tunnel credentials
+cloudflared-token.env
+.cloudflared-token.env
+token.env
+**/token.env
+
+# Local deployment/render output
+compose.rendered.yml
+*.local.yml
